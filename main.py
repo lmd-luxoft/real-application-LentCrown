@@ -11,7 +11,7 @@ from server.handler import Handler
 #from server.database import DataBase
 from server.file_service import FileService, FileServiceSigned
 import server.file_service_no_class as FileServiceNoClass
-
+from prettytable import PrettyTable
 
 def commandline_parser() -> argparse.ArgumentParser:
     """Command line parser.
@@ -113,9 +113,45 @@ def main():
     -h --help - help.
 
     """
-
-    pass
-
+    parser = argparse.ArgumentParser(description='Short argument description')
+    parser.add_argument('-p', '--port', dest='port', default=8080, help='port')
+    parser.add_argument('-f', '--folder', dest='folder', help='working directory (absolute or relative path)')
+    parser.add_argument('-i', '--init', dest='init', help='initialize database')
+    args = parser.parse_args()
+    while True:
+        if (args.folder):
+            action = input("""Options:
+c - create text file
+l - get file list
+g - get file content
+d - delete file
+q - break
+Action:""").lower()
+            try:
+                if action == 'c':
+                    content = input("""Content:
+""")
+                    FileServiceNoClass.create_file(content)
+                elif action == 'l':
+                    FileServiceNoClass.change_dir(args.folder)
+                    for dict in FileServiceNoClass.get_files():
+                        table = PrettyTable(['Filename', 'Weight', "Created", "Modified"])
+                        table.add_row([dict.get('name'),dict.get('size'),dict.get('create_date'),dict.get('edit_date')])
+                    print(table)
+                elif action == 'g':
+                    filename = input("""Filename:
+""")
+                    dict = FileServiceNoClass.get_file_data(filename)
+                    print("Content:")
+                    print(f"{dict.get('content')}")
+                elif action == 'd':
+                    filename = input("""Filename:
+""")
+                    print(f"File {FileServiceNoClass.delete_file(filename)} deleted successfully")
+                elif action == 'q':
+                    break
+            except Exception as e:
+                print(e)
 
 if __name__ == '__main__':
     main()
