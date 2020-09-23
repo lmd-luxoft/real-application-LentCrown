@@ -82,7 +82,7 @@ def get_files():
     return file_list_info
 
 
-def create_file(content=None, security_level=None):
+def create_file(content, security_level):
     """Create new .txt file.
 
     Method generates name of file from random string with digits and latin letters.
