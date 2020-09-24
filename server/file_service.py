@@ -3,21 +3,32 @@
 
 import os
 import typing
-import server.utils as utils
+#import server.utils as utils
 from collections import OrderedDict
 from server.crypto import BaseCipher, AESCipher, RSACipher, HashAPI
+import platform
+import time
+import string
+import random
+import sys
 
 
 class FileService:
     """Singleton class with methods for working with file system.
 
     """
+    # def __new__(cls, *args, **kwargs):
+    #     pass 
 
-    def __new__(cls, *args, **kwargs):
-        pass
+    def __init__(self, path: str):
+        self.__path = path
 
-    def __init__(self, *args, **kwargs):
-        pass
+    def __call__(self, cls, *args, **kwargs):
+        try:
+            return cls.__instance
+        except AttributeError:
+            cls.__instance = super(FileService, cls).__call__(*args, **kwargs)
+            return cls.__instance
 
     @property
     def path(self) -> str:
@@ -27,8 +38,7 @@ class FileService:
             Str with working directory path.
 
         """
-
-        pass
+        return self.__path
 
     @path.setter
     def path(self, value: str):
@@ -38,8 +48,7 @@ class FileService:
             value (str): Working directory path.
 
         """
-
-        pass
+        self.__path=value
 
     @staticmethod
     def change_dir(path: str):
@@ -52,8 +61,10 @@ class FileService:
             AssertionError: if directory does not exist.
 
         """
-
-        pass
+        if not(os.path.isdir(path)):
+            raise AssertionError("directory does not exist")
+        else:
+            os.chdir(path)
 
     def get_file_data(self, filename: str, user_id: int = None) -> typing.Dict[str, str]:
         """Get full info about file.
@@ -76,8 +87,17 @@ class FileService:
             ValueError: if security level is invalid.
 
         """
-
-        pass
+        filename = os.getcwd() + "\\" + filename + ".txt"
+        if not(os.path.isfile(filename)):
+            raise AssertionError("File does not exist or filename format is invalid")
+        else:
+            try:
+                with open(filename, "r") as file:
+                    data = file.read()
+            except ValueError:
+                raise ValueError("Security level is invalid")
+            file_info=dict(name=os.path.relpath(filename),content=data,create_date=time.ctime(os.path.getctime(filename)),edit_date=time.ctime(os.path.getmtime(filename)),size=os.path.getsize(filename),user_id=user_id)
+        return file_info
 
     async def get_file_data_async(self, filename: str, user_id: int = None) -> typing.Dict[str, str]:
         """Get full info about file. Asynchronous version.
@@ -100,7 +120,6 @@ class FileService:
             ValueError: if security level is invalid.
 
         """
-
         pass
 
     def get_files(self) -> typing.List[typing.Dict[str, str]]:
@@ -114,8 +133,12 @@ class FileService:
                 size (str): size of file in bytes.
 
         """
-
-        pass
+        file_list_info=[]
+        files = [file for file in os.listdir(os.getcwd()) if os.path.isfile(file)]
+        for file in files:
+            file = dict(name=file,create_date=time.ctime(os.path.getctime(file)),edit_date=time.ctime(os.path.getmtime(file)),size=os.path.getsize(file))
+            file_list_info.append(file)
+        return file_list_info
 
     async def create_file(
             self, content: str = None, security_level: str = None, user_id: int = None) -> typing.Dict[str, str]:
@@ -141,8 +164,26 @@ class FileService:
             ValueError: if security level is invalid.
 
         """
-
-        pass
+        modes=[
+        "r", #read-only
+        "rb", #read-only binary
+        "r+", #reading/writing
+        "w", #write-only
+        "wb", #write-only binary
+        "w+", #writing/reading
+        "wb+", #writing/reading binary
+        "a", #appending
+        "ab", #appending binary
+        "a+", #appending/reading
+        "ab+" #appending/reading binary
+        ]
+        if not(security_level in modes):
+            raise ValueError("Security level is invalid")
+        filename = os.getcwd() + "\\" + ''.join(random.choice(string.ascii_letters) for i in range(15)) + ".txt"
+        with open(filename, security_level) as file:
+            file.write(content)
+        file_info=dict(name=os.path.relpath(filename),content=content,create_date=time.ctime(os.path.getctime(filename)),size=os.path.getsize(filename),user_id=user_id)
+        return file_info
 
     def delete_file(self, filename: str):
         """Delete file.
@@ -157,9 +198,12 @@ class FileService:
             AssertionError: if file does not exist.
 
         """
-
-        pass
-
+        filename = os.getcwd() + "\\" + filename + ".txt"
+        if not(os.access(filename,os.F_OK)):
+            raise AssertionError("File does not exist")
+        else:
+            os.remove(filename)
+        return os.path.relpath(filename)
 
 class FileServiceSigned(FileService):
     """Singleton class with methods for working with file system and file signatures.

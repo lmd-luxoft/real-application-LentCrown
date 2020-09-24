@@ -10,7 +10,6 @@ from aiohttp import web
 from server.handler import Handler
 #from server.database import DataBase
 from server.file_service import FileService, FileServiceSigned
-import server.file_service_no_class as FileServiceNoClass
 from prettytable import PrettyTable
 
 def commandline_parser() -> argparse.ArgumentParser:
@@ -120,7 +119,7 @@ def main():
     logging.basicConfig(filename="main.log", level=logging.INFO)
     logging.info("Program started")
     args = commandline_parser().parse_args()
-    FileServiceNoClass.change_dir(args.folder)
+    fs = FileService(args.folder)
     while True:
         if (args.folder):
             action = input("""Options:
@@ -133,36 +132,9 @@ q - exit
 Action:""").lower()
             try:
                 if action == 'c':
-                    security_level = input("""SecLvl:
-""")
-                    if not(security_level):
-                        security_level = "w+"
-                    content = input("""Content:
-""")
-                    dict = FileServiceNoClass.create_file(content,security_level)
-                    table = PrettyTable(['Filename', "Size", "Created", "UserID"])
-                    table.add_row([dict.get('name'), dict.get('size'), dict.get('create_date'), dict.get('user_id')])
-                    print(table)
-                    print(dict.get('content'))
-                elif action == 'ch':
-                    path = input("""New directory path:
-""")
-                    FileServiceNoClass.change_dir(path)
-                elif action == 'l':
-                    table = PrettyTable(['Filename', 'Weight', "Created", "Modified"])
-                    for dict in FileServiceNoClass.get_files():
-                        table.add_row([dict.get('name'), dict.get('size'), dict.get('create_date'), dict.get('edit_date')])
-                    print(table)
-                elif action == 'g':
-                    filename = input("""Filename:
-""")
-                    dict = FileServiceNoClass.get_file_data(filename)
-                    print("Content:")
-                    print(f"{dict.get('content')}")
-                elif action == 'd':
-                    filename = input("""Filename:
-""")
-                    print(f"File {FileServiceNoClass.delete_file(filename)} deleted successfully")
+                    test = input("path>")
+                    fs.change_dir(test)
+                    print(fs.path)
                 elif action == 'q':
                     break
             except Exception as e:
