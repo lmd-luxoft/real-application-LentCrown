@@ -11,9 +11,20 @@ import time
 import string
 import random
 import sys
+import logging
 
+logger = logging.getLogger(__name__)
+extension = '.txt'
 
-class FileService:
+class Init(type):
+    def __call__(cls, *args, **kwargs):
+        try:
+            return cls.__instance
+        except AttributeError:
+            cls.__instance = super(Init, cls).__call__(*args, **kwargs)
+            return cls.__instance
+
+class FileService(metaclass=Init):
     """Singleton class with methods for working with file system.
 
     """
@@ -23,12 +34,8 @@ class FileService:
     def __init__(self, path: str):
         self.__path = path
 
-    def __call__(self, cls, *args, **kwargs):
-        try:
-            return cls.__instance
-        except AttributeError:
-            cls.__instance = super(FileService, cls).__call__(*args, **kwargs)
-            return cls.__instance
+    #def __call__(cls, *args, **kwargs):
+    #   pass
 
     @property
     def path(self) -> str:
@@ -50,8 +57,8 @@ class FileService:
         """
         self.__path=value
 
-    @staticmethod
-    def change_dir(path: str):
+    #@staticmethod
+    def change_dir(self, path: str):
         """Change current directory of app.
 
         Args:
@@ -62,9 +69,11 @@ class FileService:
 
         """
         if not(os.path.isdir(path)):
-            raise AssertionError("directory does not exist")
+            raise AssertionError(f'{__name__} - Directory "{path}" does not exist')
         else:
             os.chdir(path)
+            self.path = path
+            logger.info(f"Directory change -->'{path}' ")
 
     def get_file_data(self, filename: str, user_id: int = None) -> typing.Dict[str, str]:
         """Get full info about file.
@@ -87,16 +96,17 @@ class FileService:
             ValueError: if security level is invalid.
 
         """
-        filename = os.getcwd() + "\\" + filename + ".txt"
+        filename = self.path + "\\" + filename + extension
         if not(os.path.isfile(filename)):
-            raise AssertionError("File does not exist or filename format is invalid")
+            raise AssertionError(f"{__name__} - File does not exist or filename format is invalid")
         else:
             try:
                 with open(filename, "r") as file:
                     data = file.read()
             except ValueError:
-                raise ValueError("Security level is invalid")
+                raise ValueError(f"{__name__} - Security level is invalid")
             file_info=dict(name=os.path.relpath(filename),content=data,create_date=time.ctime(os.path.getctime(filename)),edit_date=time.ctime(os.path.getmtime(filename)),size=os.path.getsize(filename),user_id=user_id)
+            logger.info(f'Filedata reading OK')
         return file_info
 
     async def get_file_data_async(self, filename: str, user_id: int = None) -> typing.Dict[str, str]:
@@ -120,7 +130,6 @@ class FileService:
             ValueError: if security level is invalid.
 
         """
-        pass
 
     def get_files(self) -> typing.List[typing.Dict[str, str]]:
         """Get info about all files in working directory.
@@ -134,13 +143,14 @@ class FileService:
 
         """
         file_list_info=[]
-        files = [file for file in os.listdir(os.getcwd()) if os.path.isfile(file)]
+        files = [file for file in os.listdir(self.path) if os.path.isfile(file)]
         for file in files:
             file = dict(name=file,create_date=time.ctime(os.path.getctime(file)),edit_date=time.ctime(os.path.getmtime(file)),size=os.path.getsize(file))
             file_list_info.append(file)
+            logger.info(f'List of files created')
         return file_list_info
 
-    async def create_file(
+    def create_file(
             self, content: str = None, security_level: str = None, user_id: int = None) -> typing.Dict[str, str]:
         """Create new .txt file.
 
@@ -178,11 +188,12 @@ class FileService:
         "ab+" #appending/reading binary
         ]
         if not(security_level in modes):
-            raise ValueError("Security level is invalid")
-        filename = os.getcwd() + "\\" + ''.join(random.choice(string.ascii_letters) for i in range(15)) + ".txt"
+            raise ValueError(f"{__name__} - Security level is invalid")
+        filename = self.path + "\\" + ''.join(random.choice(string.ascii_letters) for i in range(15)) + extension
         with open(filename, security_level) as file:
             file.write(content)
         file_info=dict(name=os.path.relpath(filename),content=content,create_date=time.ctime(os.path.getctime(filename)),size=os.path.getsize(filename),user_id=user_id)
+        logger.info(f"File '{filename}' created")
         return file_info
 
     def delete_file(self, filename: str):
@@ -198,11 +209,12 @@ class FileService:
             AssertionError: if file does not exist.
 
         """
-        filename = os.getcwd() + "\\" + filename + ".txt"
+        filename = self.path + "\\" + filename + extension
         if not(os.access(filename,os.F_OK)):
-            raise AssertionError("File does not exist")
+            raise AssertionError(f"{__name__} - File does not exist")
         else:
             os.remove(filename)
+            logger.info(f"File '{filename}' removed")
         return os.path.relpath(filename)
 
 class FileServiceSigned(FileService):
