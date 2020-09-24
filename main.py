@@ -23,6 +23,7 @@ def commandline_parser() -> argparse.ArgumentParser:
     parser.add_argument('-p', '--port', dest='port', default=8080, help='port')
     parser.add_argument('-f', '--folder', dest='folder', help='working directory (absolute or relative path)')
     parser.add_argument('-i', '--init', dest='init', help='initialize database')
+    parser.add_argument('-l', '--log', dest='log', help='logger mode')
     return parser
 
 
@@ -116,7 +117,8 @@ def main():
     -h --help - help.
 
     """
-    
+    logging.basicConfig(filename="main.log", level=logging.INFO)
+    logging.info("Program started")
     args = commandline_parser().parse_args()
     FileServiceNoClass.change_dir(args.folder)
     while True:
