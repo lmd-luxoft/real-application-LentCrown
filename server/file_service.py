@@ -16,6 +16,20 @@ import logging
 logger = logging.getLogger(__name__)
 extension = '.txt'
 
+def removekey(d: dict, key: str):
+    """Function to delete item from dictionary
+
+    Args:
+        d (dict): Dictionary from which key will be deleted.
+        key (str): specified dictionary key
+    Returns:
+        Dictionary without deleted key
+
+    """
+    r = dict(d)
+    del r[key]
+    return r
+
 class Init(type):
     def __call__(cls, *args, **kwargs):
         try:
@@ -31,8 +45,9 @@ class FileService(metaclass=Init):
     # def __new__(cls, *args, **kwargs):
     #     pass 
 
-    def __init__(self, path: str):
+    def __init__(self, path: str, encrypt: str):
         self.__path = path
+        self.__encrypt= encrypt
 
     #def __call__(cls, *args, **kwargs):
     #   pass
@@ -46,6 +61,16 @@ class FileService(metaclass=Init):
 
         """
         return self.__path
+
+    @property
+    def encrypt(self) -> str:
+        """Working directory path getter.
+
+        Returns:
+            Str with working directory path.
+
+        """
+        return self.__encrypt
 
     @path.setter
     def path(self, value: str):
@@ -96,7 +121,7 @@ class FileService(metaclass=Init):
             ValueError: if security level is invalid.
 
         """
-        filename = self.path + "\\" + filename + extension
+        filename = self.path + "\\" + filename
         if not(os.path.isfile(filename)):
             raise AssertionError(f"{__name__} - File does not exist or filename format is invalid")
         else:
@@ -209,7 +234,7 @@ class FileService(metaclass=Init):
             AssertionError: if file does not exist.
 
         """
-        filename = self.path + "\\" + filename + extension
+        filename = self.path + "\\" + filename
         if not(os.access(filename,os.F_OK)):
             raise AssertionError(f"{__name__} - File does not exist")
         else:
@@ -221,6 +246,8 @@ class FileServiceSigned(FileService):
     """Singleton class with methods for working with file system and file signatures.
 
     """
+    def __init__(self, path: str, encrypt: str):
+        super().__init__(path, encrypt)
 
     def get_file_data(self, filename: str, user_id: int = None) -> typing.Dict[str, str]:
         """Get full info about file.
@@ -244,8 +271,22 @@ class FileServiceSigned(FileService):
             ValueError: if security level is invalid.
 
         """
-
-        pass
+        metadata = super().get_file_data(filename,user_id)
+        hashdata = removekey(metadata,"edit_date")
+        hashfile = metadata.get('name') + "." + super().encrypt
+        if (platform.system()=="Linux"):
+            hashfile = "." + metadata.get('name') + "." + super().encrypt
+        with open(hashfile) as hash:
+            expected_hash = hash.read()
+        raw_str = '_'.join([str(x) for x in list(hashdata.values())])
+        if (super().encrypt=="md5"):
+            actual_hash = HashAPI.hash_md5(raw_str)
+        elif (super().encrypt=="sha512"):
+            actual_hash = HashAPI.hash_sha512(raw_str)
+        if not(expected_hash == actual_hash):
+            raise Warning(f"{__name__} - File has been corrupted / changed by third-party")
+        logger.info(f"{__name__} - File verify OK")
+        return metadata
 
     async def get_file_data_async(self, filename: str, user_id: int = None) -> typing.Dict[str, str]:
         """Get full info about file. Asynchronous version.
@@ -272,7 +313,8 @@ class FileServiceSigned(FileService):
 
         pass
 
-    async def create_file(
+    #async def create_file(
+    def create_file(
             self, content: str = None, security_level: str = None, user_id: int = None) -> typing.Dict[str, str]:
         """Create new .txt file with signature file.
 
@@ -296,5 +338,38 @@ class FileServiceSigned(FileService):
             ValueError: if security level is invalid.
 
         """
+        metadata = super().create_file(content,security_level,user_id)
+        raw_str = '_'.join([str(x) for x in list(metadata.values())])
+        if (super().encrypt=="md5"):
+            hashed_str = HashAPI.hash_md5(raw_str)
+        elif (super().encrypt=="sha512"):
+            hashed_str = HashAPI.hash_sha512(raw_str)
+        hashfile = metadata.get('name') + "." + super().encrypt
+        os_name = platform.system()
+        if (os_name=="Linux"):
+            hashfile = "." + hashfile
+        with open(hashfile,'w') as hash:
+            hash.write(hashed_str)
+        if (os_name=="Windows"):
+            os.system(f"attrib +h {hashfile}")
+        return metadata
 
-        pass
+    def delete_file(self, filename: str):
+        """Delete file.
+
+        Args:
+            filename (str): Filename without .txt file extension.
+
+        Returns:
+            Str with filename with .txt file extension.
+
+        Raises:
+            AssertionError: if file does not exist.
+
+        """
+        filename = super().delete_file(filename)
+        hashfile = filename + "." + super().encrypt
+        if os.access(hashfile,os.F_OK):
+            os.remove(hashfile)
+            logger.info(f"Hashfile '{filename}' removed")
+        return os.path.relpath(filename)

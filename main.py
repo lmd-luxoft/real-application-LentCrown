@@ -14,12 +14,11 @@ from prettytable import PrettyTable
 
 def displayCLI():
     print("""Options:
-
 touch - create text file
-cd - change folder
+cd <path> - change folder
 ls - get file list
-cat - get file content
-rm - delete file
+cat <filename> - get file content
+rm <filename> - delete file
 h - display command list
 q - exit
 """)
@@ -39,6 +38,7 @@ def commandline_parser() -> argparse.ArgumentParser:
     parser.add_argument('-i', '--init', dest='init', help='initialize database')
     parser.add_argument('-l', '--log', dest='log', default='info', help='specify logger mode')
     parser.add_argument('-s', '--security', dest='sec', help='specify security level to file (default: w+)')
+    parser.add_argument('-e', '--encrypt', dest='enc', default='on,md5', help='disable or enable encryption (default: "on,md5"')
     return parser
 
 
@@ -129,6 +129,9 @@ def main():
     -p --port - port (default: 8080).
     -f --folder - working directory (absolute or relative path, default: current app folder FileServer)
     -i --init - initialize database.
+    -l --log - specify logger mode
+    -s --security - specify security level to file (default: w+)
+    -e --encrypt - disable or enable encryption (default: "on,md5"
     -h --help - help.
 
     """
@@ -136,51 +139,56 @@ def main():
     log_types={"debug":logging.DEBUG,"info":logging.INFO,"warning":logging.WARNING,"error":logging.ERROR,"critical":logging.CRITICAL}
     logging.basicConfig(level=log_types.get(args.log), filename="main.log", format='%(asctime)s - %(name)s - %(levelname)s : %(message)s')
     logger = logging.getLogger("main")
-
-    logger.info("##############################")
     logger.info("Program started")
-    fs = FileService(args.folder)
+    encryption = args.enc.split(",")
+    if (encryption[0]=="on"):
+        fs = FileServiceSigned(args.folder,encryption[1])
+    else:
+        fs = FileService(args.folder,encryption[1])
     clear()
     displayCLI()
     while True:
-        action = input(f'{fs.path}>').lower()
-        clear()
+        action = input(f'{fs.path}>')
+        action = action.split()
         try:
-            if action == 'touch':
+            if action[0] == 'touch':
                 if not(args.sec):
                     args.sec = "w+"
-                content = input("""File content:
-""")
-                clear()
+                content = input("File content:\n")
                 dict = fs.create_file(content,args.sec,None)
                 table = PrettyTable(['Filename', "Size", "Created", "UserID"])
                 table.add_row([dict.get('name'), dict.get('size'), dict.get('create_date'), dict.get('user_id')])
-                print(f'File info:\n{table}\nFile content:\n\n{dict.get("content")}\n')
-            elif action == 'cd':
+                print(f'\nFile info:\n{table}\nFile content:\n{dict.get("content")}\n')
+            elif action[0] == 'cd':
                 path = input("path>")
                 fs.change_dir(path)
                 clear()
-            elif action == 'ls':
+            elif action[0] == 'ls':
                 # list = fs.get_files()
                 table = PrettyTable(['Filename', 'Weight', "Created", "Modified"])
                 for dict in fs.get_files():
                     table.add_row([dict.get('name'), dict.get('size'), dict.get('create_date'), dict.get('edit_date')])
                 print(f'File list:\n{table}\n\n')
-            elif action == 'cat':
-                filename = input("Filename:")
-                clear()
+            elif action[0] == 'cat':
+                filename = action[1]
                 dict = fs.get_file_data(filename)
-                print(f"Content:\n{dict.get('content')}\n\n")
-            elif action == 'rm':
-                filename = input("Filename:")
-                print(f"File {fs.delete_file(filename)} deleted successfully")
-            elif action == 'h':
+                print(f"Content:\n{dict.get('content')}\n")
+            elif action[0] == 'rm':
+                filename = action[1]
+                clear()
+            elif action[0] == 'h':
+                clear()
                 displayCLI()
-            elif action == 'q':
+            elif action[0] == 'q':
                 break
+            else:
+                clear()
+                print("Wrong option key\n")
+                displayCLI()
         except Exception as e:
             print(e)
             logger.error(e)
+            displayCLI()
     logger.info("Program finished")
 
 if __name__ == '__main__':

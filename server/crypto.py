@@ -3,13 +3,14 @@
 
 import os
 import hashlib
+import logging
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.Random import get_random_bytes
 from typing import Tuple, BinaryIO
 
+logger = logging.getLogger(__name__)
 key_folder = os.environ['KEY_DIR']
-
 
 class HashAPI:
     """Class with static methods for generating hashes.
@@ -30,8 +31,10 @@ class HashAPI:
             AssertionError: if input string is not set.
 
         """
-
-        pass
+        if not(input_str):
+            raise AssertionError(f'{__name__} - input string for md5 encoding is not set')
+        hashobj = hashlib.sha512(input_str.encode())
+        return hashobj.hexdigest()
 
     @staticmethod
     def hash_md5(input_str: str) -> str:
@@ -47,8 +50,10 @@ class HashAPI:
             AssertionError: if input string is not set.
 
         """
-
-        pass
+        if not(input_str):
+            raise AssertionError(f'{__name__} - input string for sha512 encoding is not set')
+        hashobj = hashlib.md5(input_str.encode())
+        return hashobj.hexdigest()
 
 
 class BaseCipher:
