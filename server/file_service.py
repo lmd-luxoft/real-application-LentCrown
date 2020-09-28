@@ -47,7 +47,10 @@ class FileService(metaclass=Init):
 
     def __init__(self, path: str, encrypt: str):
         self.__path = path
-        self.__encrypt= encrypt
+        if (encrypt=="md5" or encrypt=="sha512"):
+            self.__encrypt = encrypt
+        else:
+            self.__encrypt = "md5"
 
     #def __call__(cls, *args, **kwargs):
     #   pass
@@ -285,7 +288,7 @@ class FileServiceSigned(FileService):
             actual_hash = HashAPI.hash_sha512(raw_str)
         if not(expected_hash == actual_hash):
             raise Warning(f"{__name__} - File has been corrupted / changed by third-party")
-        logger.info(f"{__name__} - File verify OK")
+        logger.info("File verify OK")
         return metadata
 
     async def get_file_data_async(self, filename: str, user_id: int = None) -> typing.Dict[str, str]:
