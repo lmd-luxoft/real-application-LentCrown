@@ -45,22 +45,11 @@ class FileService(metaclass=Init):
     # def __new__(cls, *args, **kwargs):
     #     pass 
 
-    def __init__(self, path: str, encrypt: str):
-        self.__path = path
+    def __init__(self, encrypt: str):
         self.__encrypt= encrypt
 
     #def __call__(cls, *args, **kwargs):
     #   pass
-
-    @property
-    def path(self) -> str:
-        """Working directory path getter.
-
-        Returns:
-            Str with working directory path.
-
-        """
-        return self.__path
 
     @property
     def encrypt(self) -> str:
@@ -72,18 +61,9 @@ class FileService(metaclass=Init):
         """
         return self.__encrypt
 
-    @path.setter
-    def path(self, value: str):
-        """Working directory path setter.
 
-        Args:
-            value (str): Working directory path.
-
-        """
-        self.__path=value
-
-    #@staticmethod
-    def change_dir(self, path: str):
+    @staticmethod
+    def change_dir(path: str):
         """Change current directory of app.
 
         Args:
@@ -97,7 +77,6 @@ class FileService(metaclass=Init):
             raise AssertionError(f'{__name__} - Directory "{path}" does not exist')
         else:
             os.chdir(path)
-            self.path = path
             logger.info(f"Directory change -->'{path}' ")
 
     def get_file_data(self, filename: str, user_id: int = None) -> typing.Dict[str, str]:
@@ -121,7 +100,7 @@ class FileService(metaclass=Init):
             ValueError: if security level is invalid.
 
         """
-        filename = self.path + "\\" + filename
+        filename = os.getcwd() + "\\" + filename
         if not(os.path.isfile(filename)):
             raise AssertionError(f"{__name__} - File does not exist or filename format is invalid")
         else:
@@ -168,7 +147,7 @@ class FileService(metaclass=Init):
 
         """
         file_list_info=[]
-        files = [file for file in os.listdir(self.path) if os.path.isfile(file)]
+        files = [file for file in os.listdir(os.getcwd()) if os.path.isfile(file)]
         for file in files:
             file = dict(name=file,create_date=time.ctime(os.path.getctime(file)),edit_date=time.ctime(os.path.getmtime(file)),size=os.path.getsize(file))
             file_list_info.append(file)
@@ -214,7 +193,7 @@ class FileService(metaclass=Init):
         ]
         if not(security_level in modes):
             raise ValueError(f"{__name__} - Security level is invalid")
-        filename = self.path + "\\" + ''.join(random.choice(string.ascii_letters) for i in range(15)) + extension
+        filename = os.getcwd() + "\\" + ''.join(random.choice(string.ascii_letters) for i in range(15)) + extension
         with open(filename, security_level) as file:
             file.write(content)
         file_info=dict(name=os.path.relpath(filename),content=content,create_date=time.ctime(os.path.getctime(filename)),size=os.path.getsize(filename),user_id=user_id)
@@ -234,7 +213,7 @@ class FileService(metaclass=Init):
             AssertionError: if file does not exist.
 
         """
-        filename = self.path + "\\" + filename
+        filename = os.getcwd() + "\\" + filename
         if not(os.access(filename,os.F_OK)):
             raise AssertionError(f"{__name__} - File does not exist")
         else:
@@ -246,8 +225,8 @@ class FileServiceSigned(FileService):
     """Singleton class with methods for working with file system and file signatures.
 
     """
-    def __init__(self, path: str, encrypt: str):
-        super().__init__(path, encrypt)
+    def __init__(self, encrypt: str):
+        super().__init__(encrypt)
 
     def get_file_data(self, filename: str, user_id: int = None) -> typing.Dict[str, str]:
         """Get full info about file.
@@ -285,7 +264,7 @@ class FileServiceSigned(FileService):
             actual_hash = HashAPI.hash_sha512(raw_str)
         if not(expected_hash == actual_hash):
             raise Warning(f"{__name__} - File has been corrupted / changed by third-party")
-        logger.info(f"{__name__} - File verify OK")
+        logger.info("File verify OK")
         return metadata
 
     async def get_file_data_async(self, filename: str, user_id: int = None) -> typing.Dict[str, str]:
