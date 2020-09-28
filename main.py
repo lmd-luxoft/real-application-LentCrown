@@ -140,16 +140,15 @@ def main():
     logging.basicConfig(level=log_types.get(args.log), filename="main.log", format='%(asctime)s - %(name)s - %(levelname)s : %(message)s')
     logger = logging.getLogger("main")
     logger.info("Program started")
-    os.chdir(args.folder)
     encryption = args.enc.split(",")
     if (encryption[0]=="on"):
-        fs = FileServiceSigned(encryption[1])
+        fs = FileServiceSigned(args.folder,encryption[1])
     else:
-        fs = FileService(encryption[1])
+        fs = FileService(args.folder,encryption[1])
     clear()
     displayCLI()
     while True:
-        action = input(f'{os.getcwd()}>')
+        action = input(f'{fs.path}>')
         action = action.split()
         try:
             if action[0] == 'touch':
@@ -161,8 +160,8 @@ def main():
                 table.add_row([dict.get('name'), dict.get('size'), dict.get('create_date'), dict.get('user_id')])
                 print(f'\nFile info:\n{table}\nFile content:\n{dict.get("content")}\n')
             elif action[0] == 'cd':
-                path = input("Path>")
-                FileService.change_dir(path)
+                path = input("path>")
+                fs.change_dir(path)
                 clear()
             elif action[0] == 'ls':
                 # list = fs.get_files()
