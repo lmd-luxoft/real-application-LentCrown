@@ -26,6 +26,19 @@ q - exit
 def clear():
     os.system('cls')
 
+def startFS(folder: str, encode: str):
+    if (encode=="on"):
+        fs = FileServiceSigned(folder,encode)
+    else:
+        fs = FileService(folder,encode)
+    os.chdir(folder)
+    return fs
+
+def init_logger(log_level: str):
+    log_types={"debug":logging.DEBUG,"info":logging.INFO,"warning":logging.WARNING,"error":logging.ERROR,"critical":logging.CRITICAL}
+    logging.basicConfig(level=log_types.get(log_level), filename="main.log", format='%(asctime)s - %(name)s - %(levelname)s : %(message)s')
+    return logging.getLogger("main")
+
 def commandline_parser() -> argparse.ArgumentParser:
     """Command line parser.
 
@@ -136,15 +149,10 @@ def main():
 
     """
     args = commandline_parser().parse_args()
-    log_types={"debug":logging.DEBUG,"info":logging.INFO,"warning":logging.WARNING,"error":logging.ERROR,"critical":logging.CRITICAL}
-    logging.basicConfig(level=log_types.get(args.log), filename="main.log", format='%(asctime)s - %(name)s - %(levelname)s : %(message)s')
-    logger = logging.getLogger("main")
+    logger = init_logger(args.log)
     logger.info("Program started")
     encryption = args.enc.split(",")
-    if (encryption[0]=="on"):
-        fs = FileServiceSigned(args.folder,encryption[1])
-    else:
-        fs = FileService(args.folder,encryption[1])
+    fs = startFS(args.folder,encryption[1])
     clear()
     displayCLI()
     while True:
