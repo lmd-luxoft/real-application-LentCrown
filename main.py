@@ -23,9 +23,6 @@ h - display command list
 q - exit
 """)
 
-def clear():
-    os.system('cls')
-
 def startFS(folder: str, encode: str):
     if (encode=="on"):
         fs = FileServiceSigned(folder,encode)
@@ -35,11 +32,38 @@ def startFS(folder: str, encode: str):
     return fs
 
 def init_logger(log_level: str):
+    """Funtion that initialise logger
+
+        Args:
+            log_level (str): string that contains logger write level
+
+        Returns:
+            Logger object
+        """
     log_types={"debug":logging.DEBUG,"info":logging.INFO,"warning":logging.WARNING,"error":logging.ERROR,"critical":logging.CRITICAL}
     logging.basicConfig(level=log_types.get(log_level), filename="main.log", format='%(asctime)s - %(name)s - %(levelname)s : %(message)s')
     return logging.getLogger("main")
 
-def commandline_parser() -> argparse.ArgumentParser:
+def start_server(args, logger):
+    """Funtion that starts web-server
+
+        Args:
+            args: array of parsed command line arguments
+            logger: logger object
+        """
+    app = web.Application()
+    handler = Handler(args.folder,args.enc)
+    app.add_routes([
+        web.get('/', handler.handle),
+        web.get('/files/list', handler.get_files),
+        web.get('/files',handler.get_file_info),
+        web.post('/files',handler.create_file),
+        web.delete('/files/{name}',handler.delete_file),
+        web.post('/change_file_dir',handler.change_file_dir)
+    ])
+    web.run_app(app, host='localhost', port=args.port, access_log = logger)
+
+def cmd_Args_Parse():
     """Command line parser.
 
     Parse port and working directory parameters from command line.
@@ -51,8 +75,9 @@ def commandline_parser() -> argparse.ArgumentParser:
     parser.add_argument('-i', '--init', dest='init', help='initialize database')
     parser.add_argument('-l', '--log', dest='log', default='info', help='specify logger mode')
     parser.add_argument('-s', '--security', dest='sec', help='specify security level to file (default: w+)')
-    parser.add_argument('-e', '--encrypt', dest='enc', default='on,md5', help='disable or enable encryption (default: "on,md5"')
-    return parser
+    parser.add_argument('-e', '--encrypt', dest='enc', default='md5', help='disable or enable encryption (default: "on,md5"')
+    array = parser.parse_args()
+    return array
 
 
 def get_file_data(path):
@@ -148,56 +173,10 @@ def main():
     -h --help - help.
 
     """
-    args = commandline_parser().parse_args()
+    args = cmd_Args_Parse()
     logger = init_logger(args.log)
-    logger.info("Program started")
-    encryption = args.enc.split(",")
-    fs = startFS(args.folder,encryption[1])
-    clear()
-    displayCLI()
-    while True:
-        action = input(f'{fs.path}>')
-        action = action.split()
-        try:
-            if action[0] == 'touch':
-                if not(args.sec):
-                    args.sec = "w+"
-                content = input("File content:\n")
-                dict = fs.create_file(content,args.sec,None)
-                table = PrettyTable(['Filename', "Size", "Created", "UserID"])
-                table.add_row([dict.get('name'), dict.get('size'), dict.get('create_date'), dict.get('user_id')])
-                print(f'\nFile info:\n{table}\nFile content:\n{dict.get("content")}\n')
-            elif action[0] == 'cd':
-                path = input("path>")
-                fs.change_dir(path)
-                clear()
-            elif action[0] == 'ls':
-                # list = fs.get_files()
-                table = PrettyTable(['Filename', 'Weight', "Created", "Modified"])
-                for dict in fs.get_files():
-                    table.add_row([dict.get('name'), dict.get('size'), dict.get('create_date'), dict.get('edit_date')])
-                print(f'File list:\n{table}\n\n')
-            elif action[0] == 'cat':
-                filename = action[1]
-                dict = fs.get_file_data(filename)
-                print(f"Content:\n{dict.get('content')}\n")
-            elif action[0] == 'rm':
-                filename = action[1]
-                clear()
-            elif action[0] == 'h':
-                clear()
-                displayCLI()
-            elif action[0] == 'q':
-                break
-            else:
-                clear()
-                print("Wrong option key\n")
-                displayCLI()
-        except Exception as e:
-            print(e)
-            logger.error(e)
-            displayCLI()
-    logger.info("Program finished")
+    start_server(args, logger)
+    logger.info("Server started")
 
 if __name__ == '__main__':
     main()
