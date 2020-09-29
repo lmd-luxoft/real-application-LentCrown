@@ -2,6 +2,7 @@
 # All rights reserved.
 
 import json
+import os
 from aiohttp import web
 from queue import Queue
 from distutils.util import strtobool
@@ -13,13 +14,22 @@ from server.users_sql import UsersSQLAPI
 from server.role_model_sql import RoleModelSQL
 
 
-class Handler:
+def startFS(folder: str, encryption: str):
+    encode = encryption.split(",")
+    if (encode[0]=="on"):
+        fs = FileServiceSigned(folder,encode[1])
+    else:
+        fs = FileService(folder,encode[1])
+    os.chdir(folder)
+    return fs
+
+class Handler():
     """Aiohttp handler with coroutines.
 
     """
 
-    def __init__(self, path: str):
-        pass
+    def __init__(self, path: str, encryption: list):
+        self._fs = startFS(path,encryption)
 
     async def handle(self, request: web.Request, *args, **kwargs) -> web.Response:
         """Basic coroutine for connection testing.
@@ -31,11 +41,10 @@ class Handler:
             Response: JSON response with status.
 
         """
+        return web.Response(text="OK",status=200)
 
-        pass
-
-    @UsersAPI.authorized
-    @RoleModel.role_model
+    #@UsersAPI.authorized
+    #@RoleModel.role_model
     # @UsersSQLAPI.authorized
     # @RoleModelSQL.role_model
     async def get_files(self, request: web.Request, *args, **kwargs) -> web.Response:
@@ -48,11 +57,17 @@ class Handler:
             Response: JSON response with success status and data or error status and error message.
 
         """
+        try:
+            list = self._fs.get_files()
+            status = 200
+            response = {'state':'success','description':'File retrieval OK', "file_list": list}
+        except Exception as e:
+            status = 500
+            response = {'state':'error','description':e}
+        return web.Response(content_type="json",status=status,text=json.dumps(response))
 
-        pass
-
-    @UsersAPI.authorized
-    @RoleModel.role_model
+    #@UsersAPI.authorized
+    #@RoleModel.role_model
     # @UsersSQLAPI.authorized
     # @RoleModelSQL.role_model
     async def get_file_info(self, request: web.Request, *args, **kwargs) -> web.Response:
@@ -68,11 +83,18 @@ class Handler:
             HTTPBadRequest: 400 HTTP error, if error.
 
         """
+        filename = request.rel_url.query["name"]
+        try:
+            file_info = self._fs.get_file_data(filename)
+            status = 200
+            response = {'state':'success','description':'File deletion OK', "data": file_info}
+        except Exception as e:
+            status = 400
+            response = {'state':'error','description':e} 
+        return web.Response(content_type="json",status=status,text=json.dumps(response))
 
-        pass
-
-    @UsersAPI.authorized
-    @RoleModel.role_model
+    #@UsersAPI.authorized
+    #@RoleModel.role_model
     # @UsersSQLAPI.authorized
     # @RoleModelSQL.role_model
     async def create_file(self, request: web.Request, *args, **kwargs) -> web.Response:
@@ -93,11 +115,26 @@ class Handler:
             HTTPBadRequest: 400 HTTP error, if error.
 
         """
+        content = await request.content.read()
+        content = content.decode("utf-8")
+        directory = json.loads(content)
+        try:
+            if (directory.get("is_signed")=='false' and self._fs.__class__.__name__=="FileServiceSigned"):
+                pass
+            elif (directory.get("is_signed")=='true' and self._fs.__class__.__name__=="FileService"):
+                pass
+            else:
+                file_info = self._fs.create_file(directory.get("content"),directory.get("security_level"),None)
+            status = 200
+            response = {'state':'success','description':'file created OK', "file_info": file_info}
+        except Exception as e:
+            status = 400
+            response = {'state':'error','description':e}
+        return web.Response(content_type="json",status=status, text=json.dumps(response))
 
-        pass
 
-    @UsersAPI.authorized
-    @RoleModel.role_model
+    #@UsersAPI.authorized
+    #@RoleModel.role_model
     # @UsersSQLAPI.authorized
     # @RoleModelSQL.role_model
     async def delete_file(self, request: web.Request, *args, **kwargs) -> web.Response:
@@ -113,11 +150,18 @@ class Handler:
             HTTPBadRequest: 400 HTTP error, if error.
 
         """
+        filename = request.rel_url.name
+        try:
+            self._fs.delete_file(filename)
+            status = 200
+            response = {'state':'success','description':'File deletion OK'}
+        except Exception as e:
+            status = 400
+            response = {'state':'error','description':e} 
+        return web.Response(content_type="json",status=status,text=json.dumps(response))
 
-        pass
-
-    @UsersAPI.authorized
-    @RoleModel.role_model
+    #@UsersAPI.authorized
+    #@RoleModel.role_model
     # @UsersSQLAPI.authorized
     # @RoleModelSQL.role_model
     async def download_file(self, request: web.Request, *args, **kwargs) -> web.Response:
@@ -136,8 +180,8 @@ class Handler:
 
         pass
 
-    @UsersAPI.authorized
-    @RoleModel.role_model
+    #@UsersAPI.authorized
+    #@RoleModel.role_model
     # @UsersSQLAPI.authorized
     # @RoleModelSQL.role_model
     async def download_file_queued(self, request: web.Request, *args, **kwargs) -> web.Response:
@@ -392,8 +436,8 @@ class Handler:
 
         pass
 
-    @UsersAPI.authorized
-    @RoleModel.role_model
+    #@UsersAPI.authorized
+    #@RoleModel.role_model
     # @UsersSQLAPI.authorized
     # @RoleModelSQL.role_model
     async def change_file_dir(self, request: web.Request, *args, **kwargs) -> web.Response:
@@ -412,5 +456,14 @@ class Handler:
             HTTPBadRequest: 400 HTTP error, if error.
 
         """
-
-        pass
+        content = await request.content.read()
+        content = content.decode("utf-8")
+        directory = json.loads(content)
+        try:
+            self._fs.change_dir(directory.get("path"))
+            status = 200
+            response = {'state':'success','description':'directory changed', "path": directory}
+        except Exception as e:
+            status = 400
+            response = {'state':'error','description':e}
+        return web.Response(content_type="json",status=status, text=json.dumps(response))
